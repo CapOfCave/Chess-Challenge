@@ -70,8 +70,7 @@ public class MyBot : IChessBot
         {
             return board.IsWhiteToMove ? int.MinValue + 1 : int.MaxValue;
         }
-        Board newBoard = new Board(new ChessChallenge.Chess.Board(board.board));
-        PieceList[] pieceLists = newBoard.GetAllPieceLists();
+        PieceList[] pieceLists = board.GetAllPieceLists();
         int netScore = pieceLists.Sum(p => (p.IsWhitePieceList ? 1 : -1) * chessPieceValues[p.TypeOfPieceInList] * p.Count);
         return netScore;
     }
