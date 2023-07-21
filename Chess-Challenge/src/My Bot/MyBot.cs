@@ -13,17 +13,19 @@ public class MyBot : IChessBot
         { PieceType.Bishop, 3 },
         { PieceType.Rook, 5 },
         { PieceType.Queen, 9 },
-        { PieceType.King, 0 }
+        { PieceType.King, 0 },
+        { PieceType.None, 0 }
     };
 
     public Move Think(Board board, Timer timer)
     {
         evals = 0;
-        int depth = 5;
+        int depth = 7;
         bool playerIsWhite = board.IsWhiteToMove;
 
         Move[] legalMoves = board.GetLegalMoves();
         Move[] orderedMoves = orderMoves(board, legalMoves);
+        Console.WriteLine(String.Join(Environment.NewLine, legalMoves));
         Move bestMove = legalMoves[0];
 
         int alpha = int.MinValue;
@@ -83,39 +85,16 @@ public class MyBot : IChessBot
     {
         Array.Sort(legalMoves, (move1, move2) =>
         {
-            board.MakeMove(move1);
-            bool isInCheckAfterMove1 = board.IsInCheck();
-            board.UndoMove(move1);
+            if (move1.IsCapture && !move2.IsCapture) return -1;
+            if (move2.IsCapture && !move1.IsCapture) return 1;
 
-            board.MakeMove(move2);
-            bool isInCheckAfterMove2 = board.IsInCheck();
-            board.UndoMove(move2);
+            // Prioritize capturing moves with the most value difference
+            int valueDifference1 = chessPieceValues[move1.CapturePieceType] - chessPieceValues[move1.MovePieceType];
+            int valueDifference2 = chessPieceValues[move2.CapturePieceType] - chessPieceValues[move2.MovePieceType];
 
-            // Prioritize moves that do not result in check
-            if (isInCheckAfterMove1 && !isInCheckAfterMove2)
-                return 1;
-            if (!isInCheckAfterMove1 && isInCheckAfterMove2)
-                return -1;
+            // sort the moves by highest value difference (highest first)
+            return valueDifference2 - valueDifference1;
 
-            // Prioritize capturing moves
-            Piece capturedPiece1 = board.GetPiece(move1.TargetSquare);
-            Piece capturedPiece2 = board.GetPiece(move2.TargetSquare);
-
-            if (!capturedPiece1.IsNull && capturedPiece2.IsNull)
-                return -1;
-            if (capturedPiece1.IsNull && !capturedPiece2.IsNull)
-                return 1;
-
-            // If both moves capture, prioritize capturing higher value pieces
-            if (!capturedPiece1.IsNull && !capturedPiece2.IsNull)
-            {
-                int valueDifference = chessPieceValues[capturedPiece1.PieceType] - chessPieceValues[capturedPiece2.PieceType];
-                if (valueDifference != 0)
-                    return -valueDifference;
-            }
-
-            // If no difference so far, use arbitrary but deterministic order
-            return move1.ToString().CompareTo(move2.ToString());
         });
         return legalMoves;
     }
