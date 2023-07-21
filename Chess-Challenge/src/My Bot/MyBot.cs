@@ -17,35 +17,67 @@ public class MyBot : IChessBot
 
     public Move Think(Board board, Timer timer)
     {
+        int depth = 3;
         bool playerIsWhite = board.IsWhiteToMove;
 
+        int bestValue = int.MinValue;
+        Move[] legalMoves = board.GetLegalMoves();
+        Move bestMove = legalMoves[0];
+        foreach (Move move in legalMoves)
+        {
+            board.MakeMove(move);
+
+            int score = minmax(board, !playerIsWhite, depth - 1) * (playerIsWhite ? 1 : -1);
+
+            if (score > bestValue)
+            {
+                bestMove = move;
+                bestValue = score;
+            }
+            board.UndoMove(move);
+        }
+
+        return bestMove;
+    }
+    
+    private int minmax(Board board, bool maximize, int depth)
+    {
+        if (depth == 0)
+        {
+            return Evaluate(board);
+        }
         Move[] moves = board.GetLegalMoves();
 
-        int bestScore = int.MinValue;
-        Move bestMove = moves[0];
+        int value = maximize ? int.MinValue : int.MaxValue;
 
         foreach (Move move in moves)
         {
-            
             board.MakeMove(move);
-            Board newBoard = new(board.board);
 
-            // evaluate position
-            PieceList[] pieceLists = newBoard.GetAllPieceLists();
-            int netScore = pieceLists.Sum(p => (p.IsWhitePieceList == playerIsWhite ? 1 : -1) * chessPieceValues[p.TypeOfPieceInList] * p.Count);
-            Console.WriteLine(string.Join(",", pieceLists.Select(p => chessPieceValues[p.TypeOfPieceInList])));
+            int moveValue = minmax(board, !maximize, depth - 1);
 
-            Console.WriteLine(move.ToString() + " " + netScore);
-            if (netScore > bestScore)
+            if (maximize)
             {
-                bestScore = netScore;
-                bestMove = move;
+                value = Math.Max(value, moveValue);
+            } else
+            {
+                value = Math.Min(value, moveValue);
             }
-
             board.UndoMove(move);
-        }
-        Console.WriteLine("----------");
 
-        return bestMove;
+        }
+        return value;        
+
+    }
+
+    /**
+     * Evaluate the position. Positive: White advantage, Negative: Black advantage
+     */
+    private static int Evaluate(Board board)
+    {
+        Board newBoard = new Board(new ChessChallenge.Chess.Board(board.board));
+        PieceList[] pieceLists = newBoard.GetAllPieceLists();
+        int netScore = pieceLists.Sum(p => (p.IsWhitePieceList ? 1 : -1) * chessPieceValues[p.TypeOfPieceInList] * p.Count);
+        return netScore;
     }
 }
