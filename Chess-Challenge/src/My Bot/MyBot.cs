@@ -19,10 +19,11 @@ public class MyBot : IChessBot
     public Move Think(Board board, Timer timer)
     {
         evals = 0;
-        int depth = 4;
+        int depth = 5;
         bool playerIsWhite = board.IsWhiteToMove;
 
         Move[] legalMoves = board.GetLegalMoves();
+        Move[] orderedMoves = orderMoves(board, legalMoves);
         Move bestMove = legalMoves[0];
 
         int alpha = int.MinValue;
@@ -32,7 +33,7 @@ public class MyBot : IChessBot
 
         int bestValue = maximize ? int.MinValue + 1 : int.MaxValue;
 
-        foreach (Move move in legalMoves)
+        foreach (Move move in orderedMoves)
         {
             board.MakeMove(move);
             if (maximize)
@@ -78,6 +79,47 @@ public class MyBot : IChessBot
         return bestMove;
     }
 
+    private Move[] orderMoves(Board board, Move[] legalMoves)
+    {
+        Array.Sort(legalMoves, (move1, move2) =>
+        {
+            board.MakeMove(move1);
+            bool isInCheckAfterMove1 = board.IsInCheck();
+            board.UndoMove(move1);
+
+            board.MakeMove(move2);
+            bool isInCheckAfterMove2 = board.IsInCheck();
+            board.UndoMove(move2);
+
+            // Prioritize moves that do not result in check
+            if (isInCheckAfterMove1 && !isInCheckAfterMove2)
+                return 1;
+            if (!isInCheckAfterMove1 && isInCheckAfterMove2)
+                return -1;
+
+            // Prioritize capturing moves
+            Piece capturedPiece1 = board.GetPiece(move1.TargetSquare);
+            Piece capturedPiece2 = board.GetPiece(move2.TargetSquare);
+
+            if (!capturedPiece1.IsNull && capturedPiece2.IsNull)
+                return -1;
+            if (capturedPiece1.IsNull && !capturedPiece2.IsNull)
+                return 1;
+
+            // If both moves capture, prioritize capturing higher value pieces
+            if (!capturedPiece1.IsNull && !capturedPiece2.IsNull)
+            {
+                int valueDifference = chessPieceValues[capturedPiece1.PieceType] - chessPieceValues[capturedPiece2.PieceType];
+                if (valueDifference != 0)
+                    return -valueDifference;
+            }
+
+            // If no difference so far, use arbitrary but deterministic order
+            return move1.ToString().CompareTo(move2.ToString());
+        });
+        return legalMoves;
+    }
+
     /**
      * Alpha: Highest value that white can guarantee
      * Beta: Lowest value that black can guarantee
@@ -91,9 +133,10 @@ public class MyBot : IChessBot
             return Evaluate(board);
         }
 
+        Move[] orderedMoves = orderMoves(board, moves);
         int bestValue = maximize ? int.MinValue + 1 : int.MaxValue;
 
-        foreach (Move move in moves)
+        foreach (Move move in orderedMoves)
         {
             board.MakeMove(move);
             if (maximize)
