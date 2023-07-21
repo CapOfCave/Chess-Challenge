@@ -23,65 +23,13 @@ public class MyBot : IChessBot
         int depth = 7;
         bool playerIsWhite = board.IsWhiteToMove;
 
-        Move[] legalMoves = board.GetLegalMoves();
-        Move[] orderedMoves = orderMoves(board, legalMoves);
-        Console.WriteLine(String.Join(Environment.NewLine, legalMoves));
-        Move bestMove = legalMoves[0];
+        (int eval, Move bestMove) = MiniMax(board, depth, int.MinValue, int.MaxValue, playerIsWhite);
 
-        int alpha = int.MinValue;
-        int beta = int.MaxValue;
-
-        bool maximize = playerIsWhite;
-
-        int bestValue = maximize ? int.MinValue + 1 : int.MaxValue;
-
-        foreach (Move move in orderedMoves)
-        {
-            board.MakeMove(move);
-            if (maximize)
-            {
-                int moveValue = minmax(board, depth - 1, alpha, beta, false);
-                if (moveValue > bestValue)
-                {
-                    bestValue = moveValue;
-                    bestMove = move;
-                }
-                // if we're the maximizing player and we see that we can get a new highest value here...
-                alpha = Math.Max(alpha, bestValue);
-                // and this highest value is more than the minimum the other can enforce
-
-
-                if (beta <= alpha)
-                {
-                    // we don't need to consider this branch as the minimizing player would have chosen a better one before
-                    board.UndoMove(move);
-                    break;
-                }
-            }
-            else
-            {
-                int moveValue = minmax(board, depth - 1, alpha, beta, true);
-                if (moveValue < bestValue)
-                {
-                    bestValue = moveValue;
-                    bestMove = move;
-
-                }
-                beta = Math.Min(beta, bestValue);
-                if (beta <= alpha)
-                {
-                    board.UndoMove(move);
-                    break;
-                }
-            }
-            board.UndoMove(move);
-        }
-        Console.WriteLine("Evals: " + evals);
-
+        Console.WriteLine($"Current eval: {eval}; number of evaluations: " + evals);
         return bestMove;
     }
 
-    private Move[] orderMoves(Board board, Move[] legalMoves)
+    private Move[] OrderMoves(Board board, Move[] legalMoves)
     {
         Array.Sort(legalMoves, (move1, move2) =>
         {
@@ -103,49 +51,41 @@ public class MyBot : IChessBot
      * Alpha: Highest value that white can guarantee
      * Beta: Lowest value that black can guarantee
      */
-    private int minmax(Board board, int depth, int alpha, int beta, bool maximize)
+    private (int, Move) MiniMax(Board board, int depth, int alpha, int beta, bool maximize)
     {
         //Console.WriteLine(string.Concat(Enumerable.Repeat("  ", 5 - depth)) + "minmax a=" + alpha + " b=" + beta);
         Move[] moves = board.GetLegalMoves();
         if (depth == 0 || moves.Length == 0)
         {
-            return Evaluate(board);
+            return (Evaluate(board), Move.NullMove);
         }
 
-        Move[] orderedMoves = orderMoves(board, moves);
-        int bestValue = maximize ? int.MinValue + 1 : int.MaxValue;
+        OrderMoves(board, moves);
+        Move bestMove = moves[0];
 
-        foreach (Move move in orderedMoves)
+        foreach (Move move in moves)
         {
             board.MakeMove(move);
-            if (maximize)
+            (int moveValue, _) = MiniMax(board, depth - 1, alpha, beta, !maximize);
+            if (maximize && moveValue > alpha)
             {
-                int moveValue = minmax(board, depth - 1, alpha, beta, false);
-                bestValue = Math.Max(bestValue, moveValue);
-                // if we're the maximizing player and we see that we can get a new highest value here...
-                 alpha = Math.Max(alpha, bestValue);
-                // and this highest value is more than the minimum the other can enforce
-                if (beta <= alpha)
-                {
-                    // we don't need to consider this branch as the minimizing player would have chosen a better one before
-                    board.UndoMove(move);
-                    break;
-                }
+                alpha = moveValue;
+                bestMove = move;
+
             }
-            else
+            else if (!maximize && moveValue < beta)
             {
-                int moveValue = minmax(board, depth - 1, alpha, beta, true);
-                bestValue = Math.Min(bestValue, moveValue);
-                beta = Math.Min(beta, bestValue);
-                if (beta <= alpha)
-                {
-                    board.UndoMove(move);
-                    break;
-                }
+                beta = moveValue;
+                bestMove = move;
             }
             board.UndoMove(move);
+            if (beta <= alpha)
+            {
+                // we don't need to consider this branch as the other player would have chosen a better one before 
+                break;
+            }
         }
-        return bestValue;
+        return (maximize ? alpha : beta, bestMove);
 
     }
 
